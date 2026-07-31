@@ -35,3 +35,21 @@ Power BI est l'outil retenu (liste autorisée du sujet).
 streamlit run app.py
 # → http://localhost:8501
 ```
+
+Filtres : Ville, Pays, Date, Catégorie AQI. 4 onglets : Temporel, Villes, Polluants, Analyse.
+
+---
+
+## KPIs du dashboard
+
+AQI moyen · AQI maximum · AQI minimum · Total des mesures · Nombre de villes · **Polluant dominant**
+
+## Visualisations
+
+Évolution AQI (courbe + heatmap) · AQI par ville · Top 10 polluées · Répartition des catégories · Carte géographique · Comparaison des polluants (PM2.5, PM10, NO₂, SO₂, CO, O₃)
+
+---
+
+## Licence
+
+Projet universitaire — données simulées à des fins pédagogiques.
