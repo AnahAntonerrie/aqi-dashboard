@@ -144,5 +144,81 @@ with t1:
     fig.update_layout(margin=dict(t=30))
     st.plotly_chart(fig, use_container_width=True)
 
+city = d.groupby("city_name", as_index=False)["aqi_value"].mean().sort_values("aqi_value", ascending=False)
+top10 = city.head(10)
+
+map_ok = True
+try:
+    md = d.groupby(["city_name", "country", "latitude", "longitude"], as_index=False).agg(
+        aqi=("aqi_value", "mean"), nb=("aqi_value", "count"))
+except Exception:
+    map_ok = False
+
+tbl = d.groupby(["city_name", "country"], as_index=False).agg(
+    aqi_moyen=("aqi_value", "mean"),
+    aqi_max=("aqi_value", "max"),
+    nb_mesures=("aqi_value", "count")
+).sort_values("aqi_moyen", ascending=False)
+tbl["aqi_moyen"] = tbl["aqi_moyen"].round(1)
+tbl.columns = ["Ville", "Pays", "AQI Moyen", "AQI Max", "Nb Mesures"]
+
+with t2:
+    c1, c2 = st.columns(2)
+    with c1:
+        fig = px.bar(city.head(20), x="aqi_value", y="city_name", orientation="h",
+                     title="AQI Moyen par Ville (Top 20)",
+                     labels={"aqi_value": "AQI Moyen", "city_name": ""},
+                     color="aqi_value",
+                     color_continuous_scale=["#00E400", "#FFFF00", "#FF7E00", "#FF0000", "#8F3F97"])
+        fig.update_layout(yaxis={"categoryorder": "total ascending"}, margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        fig = px.bar(top10, x="city_name", y="aqi_value",
+                     title="Top 10 des Villes les Plus Polluees",
+                     labels={"city_name": "Ville", "aqi_value": "AQI Moyen"},
+                     color="aqi_value",
+                     color_continuous_scale=["#FF7E00", "#FF0000", "#8F3F97"])
+        fig.update_layout(margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("### Carte Geographique des Villes")
+    if map_ok:
+        try:
+            fig = go.Figure(data=go.Scattergeo(
+                lon=md["longitude"], lat=md["latitude"],
+                text=md["city_name"],
+                hovertext=md.apply(
+                    lambda r: f"<b>{r['city_name']}</b><br>Pays: {r['country']}<br>AQI: {r['aqi']:.1f}<br>Mesures: {int(r['nb'])}",
+                    axis=1),
+                hoverinfo="text", mode="markers",
+                marker=dict(
+                    size=md["aqi"] / 10 + 5,
+                    color=md["aqi"],
+                    colorscale=[[0, "#00E400"], [0.2, "#FFFF00"], [0.4, "#FF7E00"],
+                                [0.6, "#FF0000"], [0.8, "#8F3F97"], [1, "#7E0023"]],
+                    cmin=0, cmax=300,
+                    colorbar=dict(title="AQI Moyen"),
+                    line=dict(width=1, color="white")
+                )
+            ))
+            fig.update_geos(projection_type="natural earth", showcountries=True,
+                           countrycolor="rgba(200,200,200,0.5)", coastlinecolor="rgba(150,150,150,0.5)")
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=500,
+                             geo=dict(bgcolor="rgba(240,240,240,0.5)"))
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Erreur carte: {e}")
+            st.info("La carte necessite une connexion internet.")
+    else:
+        st.info("Donnees geographiques non disponibles.")
+
+    st.markdown("### Classement Complet des Villes")
+    fig_tbl = go.Figure(data=[go.Table(
+        header=dict(values=list(tbl.columns), fill_color="#1B2A4A", font=dict(color="white", size=12), align="left"),
+        cells=dict(values=[tbl[c] for c in tbl.columns], fill_color=["#f9f9f9", "#ebebeb"], align="left", font_size=11)
+    )])
+    fig_tbl.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=max(400, len(tbl) * 25 + 50))
+    st.plotly_chart(fig_tbl, use_container_width=True)
+
 st.markdown("---")
 st.markdown("<p style='text-align:center; color:#999;'>Projet AQI &mdash; Bloc 2 : Visualisation de donnees &mdash; Juillet 2026</p>", unsafe_allow_html=True)
