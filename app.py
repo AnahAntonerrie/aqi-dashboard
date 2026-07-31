@@ -37,5 +37,25 @@ st.markdown("""
 </h1>
 """, unsafe_allow_html=True)
 
+with st.sidebar:
+    st.markdown("## Filtres")
+    villes_f = st.multiselect("Ville", sorted(df["city_name"].unique()))
+    pays_f = st.multiselect("Pays", sorted(df["country"].unique()))
+    dr = st.date_input("Periode", [df["date"].min(), df["date"].max()],
+                       min_value=df["date"].min(), max_value=df["date"].max())
+    cat_f = st.multiselect("Categorie AQI", sorted(df["aqi_category"].unique()))
+
+mask = pd.Series(True, index=df.index)
+if villes_f: mask &= df["city_name"].isin(villes_f)
+if pays_f: mask &= df["country"].isin(pays_f)
+if len(dr) == 2:
+    mask &= (df["date"] >= pd.Timestamp(dr[0])) & (df["date"] <= pd.Timestamp(dr[1]))
+if cat_f: mask &= df["aqi_category"].isin(cat_f)
+
+d = df[mask].copy()
+if d.empty:
+    st.warning("Aucune donnee pour les filtres selectionnes.")
+    st.stop()
+
 st.markdown("---")
 st.markdown("<p style='text-align:center; color:#999;'>Projet AQI &mdash; Bloc 2 : Visualisation de donnees &mdash; Juillet 2026</p>", unsafe_allow_html=True)
