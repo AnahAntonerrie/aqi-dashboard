@@ -309,3 +309,125 @@ JOIN dim_date d ON f.date_id = d.date_id
 WHERE f.aqi_value > 150  -- Unhealthy ou pire
 GROUP BY d.year, d.month, d.month_name
 ORDER BY nb_jours_critiques DESC;
+
+
+-- ----------------------------------------------------------------
+-- 8. CARTE GÉOGRAPHIQUE
+-- ----------------------------------------------------------------
+
+SELECT
+    c.city_name,
+    c.country,
+    c.latitude,
+    c.longitude,
+    ROUND(AVG(f.aqi_value), 1) AS aqi_moyen,
+    ROUND(AVG(f.pm25), 1)      AS pm25_moyen,
+    MAX(f.aqi_value)            AS aqi_max,
+    COUNT(*)                    AS nb_mesures,
+    CASE
+        WHEN AVG(f.aqi_value) <= 50  THEN 'Good'
+        WHEN AVG(f.aqi_value) <= 100 THEN 'Moderate'
+        WHEN AVG(f.aqi_value) <= 150 THEN 'Unhealthy for Sensitive Groups'
+        WHEN AVG(f.aqi_value) <= 200 THEN 'Unhealthy'
+        WHEN AVG(f.aqi_value) <= 300 THEN 'Very Unhealthy'
+        ELSE 'Hazardous'
+    END AS categorie_moyenne
+FROM fact_aqi f
+JOIN dim_city c ON f.city_id = c.city_id
+WHERE c.latitude IS NOT NULL AND c.longitude IS NOT NULL
+GROUP BY c.city_name, c.country, c.latitude, c.longitude
+ORDER BY aqi_moyen DESC;
+
+
+-- ----------------------------------------------------------------
+-- 9. REQUÊTES POUR FILTRES INTERACTIFS
+-- ----------------------------------------------------------------
+
+-- 9a. Liste des villes (pour liste déroulante)
+SELECT DISTINCT c.city_name, c.country
+FROM fact_aqi f
+JOIN dim_city c ON f.city_id = c.city_id
+ORDER BY c.country, c.city_name;
+
+-- 9b. Liste des pays (pour liste déroulante)
+SELECT DISTINCT c.country
+FROM fact_aqi f
+JOIN dim_city c ON f.city_id = c.city_id
+ORDER BY c.country;
+
+-- 9c. Période min/max (pour curseur de dates)
+SELECT MIN(d.date) AS date_debut, MAX(d.date) AS date_fin
+FROM fact_aqi f
+JOIN dim_date d ON f.date_id = d.date_id;
+
+-- 9d. Liste des catégories AQI (pour segmentation)
+SELECT DISTINCT aqi_category
+FROM fact_aqi
+ORDER BY aqi_category;
+
+
+-- ----------------------------------------------------------------
+-- 10. ANALYSES COMPLÉMENTAIRES
+-- ----------------------------------------------------------------
+
+-- 10a. Moyenne saisonnière par hémisphère
+SELECT
+    CASE
+        WHEN c.latitude > 0 THEN 'Hémisphère Nord'
+        ELSE 'Hémisphère Sud'
+    END AS hemisphere,
+    d.month_name,
+    ROUND(AVG(f.aqi_value), 1) AS aqi_moyen
+FROM fact_aqi f
+JOIN dim_city c ON f.city_id = c.city_id
+JOIN dim_date d ON f.date_id = d.date_id
+GROUP BY CASE WHEN c.latitude > 0 THEN 'Hémisphère Nord' ELSE 'Hémisphère Sud' END, d.month_name
+ORDER BY hemisphere, d.month;
+
+-- 10b. Corrélation entre AQI et température
+SELECT
+    CASE
+        WHEN f.temperature < 10  THEN '< 10°C'
+        WHEN f.temperature < 20  THEN '10-20°C'
+        WHEN f.temperature < 30  THEN '20-30°C'
+        ELSE '> 30°C'
+    END AS tranche_temp,
+    ROUND(AVG(f.aqi_value), 1) AS aqi_moyen,
+    COUNT(*)                     AS nb_mesures
+FROM fact_aqi f
+WHERE f.temperature IS NOT NULL
+GROUP BY CASE
+    WHEN f.temperature < 10  THEN '< 10°C'
+    WHEN f.temperature < 20  THEN '10-20°C'
+    WHEN f.temperature < 30  THEN '20-30°C'
+    ELSE '> 30°C'
+END
+ORDER BY tranche_temp;
+
+-- 10c. Top 5 des villes les plus propres
+SELECT TOP 5
+    c.city_name,
+    c.country,
+    ROUND(AVG(f.aqi_value), 1) AS aqi_moyen
+FROM fact_aqi f
+JOIN dim_city c ON f.city_id = c.city_id
+GROUP BY c.city_name, c.country
+HAVING AVG(f.aqi_value) BETWEEN 1 AND 50
+ORDER BY aqi_moyen ASC;
+
+
+-- ==================================================================
+-- NOTES D'OPTIMISATION
+-- ==================================================================
+/*
+1. Tous les indexes cluster sont sur les clés primaires.
+2. Les indexes non-cluster sur city_id, date_id et aqi_value
+   accélèrent les filtres et les GROUP BY.
+3. Les requêtes utilisent des jointures en étoile (fact ? dim),
+   ce qui est optimal pour un Data Warehouse.
+4. Éviter SELECT * : ne sélectionner que les colonnes nécessaires.
+5. Pour Power BI, utiliser DirectQuery si le volume > 10M lignes,
+   ou Import pour des volumes < 1M lignes.
+6. Les filtres sont poussés au niveau SQL via les WHERE,
+   ce qui réduit le transfert de données vers le client BI.
+*/
