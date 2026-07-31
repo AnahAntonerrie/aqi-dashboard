@@ -57,5 +57,51 @@ if d.empty:
     st.warning("Aucune donnee pour les filtres selectionnes.")
     st.stop()
 
+avg = round(d["aqi_value"].mean(), 1)
+mx = d["aqi_value"].max()
+mn = d["aqi_value"].min()
+tt = len(d)
+nv = d["city_name"].nunique()
+
+pol = pd.DataFrame({
+    "polluant": ["PM2.5", "PM10", "NO2", "SO2", "CO", "O3"],
+    "valeur": [
+        d["pm25"].mean(), d["pm10"].mean(),
+        d["no2"].mean(), d["so2"].mean(),
+        d["co"].mean(), d["o3"].mean()
+    ]
+})
+dominant_idx = pol["valeur"].values / [POLLU_THRESHOLDS[p] for p in pol["polluant"]]
+dominant_polluant = pol.loc[dominant_idx.argmax(), "polluant"]
+
+def kc(v):
+    if v <= 50: return "#00E400"
+    if v <= 100: return "#FFFF00"
+    if v <= 150: return "#FF7E00"
+    if v <= 200: return "#FF0000"
+    if v <= 300: return "#8F3F97"
+    return "#7E0023"
+
+kpis = [
+    ("AQI MOYEN", avg, kc(avg)),
+    ("AQI MAXIMUM", mx, "#FF0000"),
+    ("AQI MINIMUM", mn, "#00E400"),
+    ("TOTAL MESURES", f"{tt:,}", "#1B2A4A"),
+    ("VILLES ANALYSEES", nv, "#1B2A4A"),
+    ("POLLUANT DOMINANT", dominant_polluant, "#8F3F97")
+]
+cols = st.columns(len(kpis))
+for i, (lb, vl, cl) in enumerate(kpis):
+    fsize = 20 if i == len(kpis) - 1 else 28
+    with cols[i]:
+        st.markdown(f"""
+        <div style='background:{cl}15;border-left:5px solid {cl};padding:15px;border-radius:5px;'>
+            <p style='margin:0;font-size:12px;color:#666;'>{lb}</p>
+            <p style='margin:0;font-size:{fsize}px;font-weight:bold;color:{cl};'>{vl}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
 st.markdown("---")
 st.markdown("<p style='text-align:center; color:#999;'>Projet AQI &mdash; Bloc 2 : Visualisation de donnees &mdash; Juillet 2026</p>", unsafe_allow_html=True)
