@@ -1,0 +1,2 @@
+# Copier ce fichier vers ~/.streamlit/secrets.toml puis remplacer par vos credentials.
+db_url = "postgresql://USER:PASSWORD@HOST:PORT/DATABASE?sslmode=require"
