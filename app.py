@@ -103,5 +103,46 @@ for i, (lb, vl, cl) in enumerate(kpis):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# Pre-calculations
+daily = d.groupby("date", as_index=False)["aqi_value"].mean()
+cats = d["aqi_category"].value_counts().reindex(CAT_ORDER, fill_value=0).reset_index()
+cats.columns = ["cat", "n"]
+cats["c"] = cats["cat"].map(AQI_COLORS)
+
+hh = d.copy()
+hh["y"] = hh["date"].dt.year
+hh["m"] = hh["date"].dt.month
+hp = hh.groupby(["y", "m"], as_index=False)["aqi_value"].mean()
+hp = hp.pivot(index="y", columns="m", values="aqi_value").reindex(columns=range(1, 13))
+hp.columns = ["Jan", "Fev", "Mar", "Avr", "Mai", "Juin",
+              "Juil", "Aout", "Sep", "Oct", "Nov", "Dec"]
+
+t1, t2, t3, t4 = st.tabs([" Temporel", " Villes", " Polluants", " Analyse"])
+
+with t1:
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        fig = px.line(daily, x="date", y="aqi_value",
+                      title="Evolution de l'AQI dans le Temps",
+                      labels={"date": "Date", "aqi_value": "AQI Moyen"})
+        fig.update_traces(line_color="#1B2A4A", line_width=2)
+        fig.update_layout(hovermode="x unified", margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        fig = go.Figure(data=[go.Pie(
+            labels=cats["cat"], values=cats["n"],
+            marker=dict(colors=cats["c"]), hole=0.4,
+            textinfo="label+percent", textposition="outside"
+        )])
+        fig.update_layout(title="Repartition des Categories AQI", showlegend=False, margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+
+    fig = px.imshow(hp, text_auto=".0f", aspect="auto",
+                    color_continuous_scale=["#00E400", "#FFFF00", "#FF7E00", "#FF0000", "#8F3F97"],
+                    title="Heatmap AQI par Mois/Annee",
+                    labels={"x": "Mois", "y": "Annee"})
+    fig.update_layout(margin=dict(t=30))
+    st.plotly_chart(fig, use_container_width=True)
+
 st.markdown("---")
 st.markdown("<p style='text-align:center; color:#999;'>Projet AQI &mdash; Bloc 2 : Visualisation de donnees &mdash; Juillet 2026</p>", unsafe_allow_html=True)
