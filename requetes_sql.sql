@@ -211,3 +211,101 @@ GROUP BY c.city_name, c.country
 ORDER BY aqi_moyen DESC
 LIMIT 10;
 */
+
+
+-- ----------------------------------------------------------------
+-- 5. RÉPARTITION DES CATÉGORIES AQI (Donut Chart)
+-- ----------------------------------------------------------------
+
+SELECT
+    f.aqi_category,
+    COUNT(*)                                    AS nb_mesures,
+    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 1) AS pourcentage,
+    CASE
+        WHEN f.aqi_category = 'Good'                          THEN '#00E400'
+        WHEN f.aqi_category = 'Moderate'                      THEN '#FFFF00'
+        WHEN f.aqi_category = 'Unhealthy for Sensitive Groups' THEN '#FF7E00'
+        WHEN f.aqi_category = 'Unhealthy'                     THEN '#FF0000'
+        WHEN f.aqi_category = 'Very Unhealthy'                THEN '#8F3F97'
+        WHEN f.aqi_category = 'Hazardous'                     THEN '#7E0023'
+    END AS couleur_hex
+FROM fact_aqi f
+GROUP BY f.aqi_category
+ORDER BY nb_mesures DESC;
+
+
+-- ----------------------------------------------------------------
+-- 6. COMPARAISON DES POLLUANTS PRINCIPAUX (Bar Chart / Radar)
+-- ----------------------------------------------------------------
+
+-- 6a. Moyenne de chaque polluant (unpivot)
+SELECT 'PM2.5' AS polluant, ROUND(AVG(pm25), 2) AS valeur_moyenne, 'µg/m³' AS unite FROM fact_aqi
+UNION ALL
+SELECT 'PM10',  ROUND(AVG(pm10), 2), 'µg/m³' FROM fact_aqi
+UNION ALL
+SELECT 'NO2',   ROUND(AVG(no2),  2), 'ppb'   FROM fact_aqi
+UNION ALL
+SELECT 'SO2',   ROUND(AVG(so2),  2), 'ppb'   FROM fact_aqi
+UNION ALL
+SELECT 'CO',    ROUND(AVG(co),   3), 'ppm'   FROM fact_aqi
+UNION ALL
+SELECT 'O3',    ROUND(AVG(o3),   2), 'ppb'   FROM fact_aqi
+ORDER BY valeur_moyenne DESC;
+
+-- 6b. Évolution temporelle des polluants (pour Multi-line Chart)
+SELECT
+    d.date,
+    ROUND(AVG(f.pm25), 1) AS pm25,
+    ROUND(AVG(f.pm10), 1) AS pm10,
+    ROUND(AVG(f.no2),  1) AS no2,
+    ROUND(AVG(f.so2),  2) AS so2,
+    ROUND(AVG(f.co),   3) AS co,
+    ROUND(AVG(f.o3),   1) AS o3
+FROM fact_aqi f
+JOIN dim_date d ON f.date_id = d.date_id
+GROUP BY d.date
+ORDER BY d.date;
+
+
+-- ----------------------------------------------------------------
+-- 7. HEATMAP : PÉRIODES LES PLUS POLLUÉES (Mois × Année)
+-- ----------------------------------------------------------------
+
+-- 7a. Agrégation par mois et année (pour heatmap)
+SELECT
+    d.year,
+    d.month,
+    d.month_name,
+    d.quarter,
+    ROUND(AVG(f.aqi_value), 1) AS aqi_moyen,
+    MAX(f.aqi_value)            AS aqi_max,
+    COUNT(*)                    AS nb_mesures,
+    CASE
+        WHEN AVG(f.aqi_value) <= 50  THEN 'Good'
+        WHEN AVG(f.aqi_value) <= 100 THEN 'Moderate'
+        WHEN AVG(f.aqi_value) <= 150 THEN 'Unhealthy for Sensitive Groups'
+        WHEN AVG(f.aqi_value) <= 200 THEN 'Unhealthy'
+        WHEN AVG(f.aqi_value) <= 300 THEN 'Very Unhealthy'
+        ELSE 'Hazardous'
+    END AS categorie_moyenne
+FROM fact_aqi f
+JOIN dim_date d ON f.date_id = d.date_id
+GROUP BY d.year, d.month, d.month_name, d.quarter
+ORDER BY d.year, d.month;
+
+-- 7b. Périodes critiques (AQI > 150)
+SELECT
+    d.year,
+    d.month,
+    d.month_name,
+    COUNT(*)                                AS nb_jours_critiques,
+    ROUND(AVG(f.aqi_value), 1)              AS aqi_moyen_periode,
+    ROUND(100.0 * COUNT(*) /
+        (SELECT COUNT(*) FROM fact_aqi f2
+         JOIN dim_date d2 ON f2.date_id = d2.date_id
+         WHERE d2.year = d.year AND d2.month = d.month), 1) AS pct_critique
+FROM fact_aqi f
+JOIN dim_date d ON f.date_id = d.date_id
+WHERE f.aqi_value > 150  -- Unhealthy ou pire
+GROUP BY d.year, d.month, d.month_name
+ORDER BY nb_jours_critiques DESC;
