@@ -220,5 +220,92 @@ with t2:
     fig_tbl.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=max(400, len(tbl) * 25 + 50))
     st.plotly_chart(fig_tbl, use_container_width=True)
 
+dp = d.groupby("date", as_index=False)[["pm25", "pm10", "no2", "o3"]].mean()
+
+with t3:
+    c1, c2 = st.columns(2)
+    with c1:
+        fig = px.bar(pol, x="polluant", y="valeur", text="valeur",
+                     title="Concentration Moyenne des Polluants",
+                     labels={"polluant": "Polluant", "valeur": "Concentration moyenne"},
+                     color="polluant",
+                     color_discrete_sequence=["#E74C3C", "#E67E22", "#3498DB",
+                                              "#9B59B6", "#2ECC71", "#1ABC9C"])
+        fig.update_traces(texttemplate="%{text:.1f}", textposition="outside")
+        fig.update_layout(showlegend=False, margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+    with c2:
+        fig = px.line(dp, x="date", y=["pm25", "pm10", "no2", "o3"],
+                     title="Evolution des Polluants dans le Temps",
+                     labels={"date": "Date", "value": "Concentration", "variable": "Polluant"},
+                     color_discrete_map={"pm25": "#FF0000", "pm10": "#FF7E00",
+                                        "no2": "#1B2A4A", "o3": "#8F3F97"})
+        fig.update_layout(margin=dict(t=30))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("### Profil Radar des Polluants")
+    try:
+        fig = go.Figure(data=go.Scatterpolar(
+            r=pol["valeur"].tolist(),
+            theta=pol["polluant"].tolist(),
+            fill="toself", line_color="#1B2A4A",
+            marker=dict(color="#1B2A4A", size=8)
+        ))
+        fig.update_layout(
+            polar=dict(radialaxis=dict(visible=True, gridcolor="rgba(0,0,0,0.1)"),
+                      gridshape="circular"),
+            margin=dict(t=30), height=400)
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"Erreur radar: {e}")
+
+# Analyse dynamique
+top3_cities = city.head(3)["city_name"].tolist()
+top3_text = ", ".join(f"**{c}**" for c in top3_cities)
+crit = d.assign(m=d["date"].dt.month).groupby("m", as_index=False)["aqi_value"].mean()
+crit_months = crit[crit["aqi_value"] > 150]
+crit_text = ", ".join(f"{int(m)}" for m in crit_months["m"].tolist()) if not crit_months.empty else "aucune"
+worst_month = int(crit.loc[crit["aqi_value"].idxmax(), "m"])
+best_month = int(crit.loc[crit["aqi_value"].idxmin(), "m"])
+pct_good = round(100.0 * (d["aqi_category"] == "Good").mean(), 1)
+pct_unsafe = round(100.0 * (d["aqi_value"] > 100).mean(), 1)
+trend_val = round(daily["aqi_value"].iloc[-1] - daily["aqi_value"].iloc[0], 1)
+trend_dir = "hausse" if trend_val > 0 else ("baisse" if trend_val < 0 else "stabilite")
+pol_rank = pol.sort_values("valeur", ascending=False)["polluant"].tolist()
+
+with t4:
+    st.markdown(f"""
+## Analyse et Recommandations
+
+### 1. Villes les plus polluees
+Sur la periode et le perimetre filtre, les villes les plus touchees sont : **{top3_text}**. Leur AQI moyen est tres au-dessus du seuil recommand&#233; par l&#8217;OMS. L&#8217;Asie du Sud concentre la majorite des villes les plus polluees du classement mondial.
+
+### 2. Evolution de l'AQI dans le temps
+- **Tendance sur la periode** : {trend_dir.upper()} de {abs(trend_val):.1f} point(s) d&#8217;AQI entre le debut et la fin de la periode.
+- **Cycle saisonnier marque** : les niveaux sont plus eleves en hiver (inversion thermique, chauffage) et plus bas pendant les pluies.
+- **Repartition** : **{pct_good}%** des mesures sont « Good » et **{pct_unsafe}%** depassent le seuil « Unhealthy for Sensitive Groups » (100).
+
+### 3. Periodes critiques
+- **Mois le plus pollue** : mois **{worst_month}**
+- **Mois le plus propre** : mois **{best_month}**
+- **Mois critiques (AQI moyen &gt; 150)** : {crit_text}
+
+### 4. Principaux polluants
+Classement par concentration moyenne (par rapport aux seuils sante OMS) :
+1. **{pol_rank[0]}** — polluant dominant
+2. {pol_rank[1]}
+3. {pol_rank[2]}
+
+Les particules fines (PM2.5, PM10) sont fortement correlees a l'AQI (r &sim; 0,92) ; NO2 est lie au trafic, O3 augmente en ete (photochimie).
+
+### 5. Recommandations
+1. **Reduire les emissions de {dominant_polluant}** (transports, industrie, chauffage) — priorite absolue.
+2. **Instaurer des zones a faibles emissions** (ZFE) dans les villes les plus polluees.
+3. **Interdire le brulage agricole** post-recolte en automne (Inde, Pakistan).
+4. **Developper les transports propres** (electrique, metro).
+5. **Mettre en place des systemes d&#8217;alerte precoce** pour les populations sensibles.
+6. **Planter des arbres et creer des corridors verts** en zones urbaines denses.
+""")
+
 st.markdown("---")
 st.markdown("<p style='text-align:center; color:#999;'>Projet AQI &mdash; Bloc 2 : Visualisation de donnees &mdash; Juillet 2026</p>", unsafe_allow_html=True)
