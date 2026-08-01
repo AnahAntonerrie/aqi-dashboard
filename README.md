@@ -4,6 +4,8 @@
 
 Analyse et dashboard interactif de l'Air Quality Index (AQI) à partir du Data Warehouse PostgreSQL (Neon).
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://aqi-dashboard.streamlit.app)
+
 ---
 
 ## Contenu du projet
@@ -31,6 +33,10 @@ Power BI est l'outil retenu (liste autorisée du sujet).
 
 ## Dashboard Streamlit (bonus)
 
+🔗 **Version déployée** : [aqi-dashboard.streamlit.app](https://aqi-dashboard.streamlit.app)
+
+En local :
+
 ```bash
 streamlit run app.py
 # → http://localhost:8501
@@ -53,3 +59,4 @@ AQI moyen · AQI maximum · AQI minimum · Total des mesures · Nombre de villes
 ## Licence
 
 Projet universitaire — données simulées à des fins pédagogiques.
+

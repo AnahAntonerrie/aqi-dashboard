@@ -20,16 +20,45 @@ CAT_ORDER = ["Good", "Moderate", "Unhealthy for Sensitive Groups",
 POLLU_THRESHOLDS = {"PM2.5": 15, "PM10": 45, "NO2": 13, "SO2": 15, "CO": 4, "O3": 51}
 POLLU_KEYS = ["pm25", "pm10", "no2", "so2", "co", "o3"]
 
+def aqi_cat(v):
+    if v <= 50: return "Good"
+    if v <= 100: return "Moderate"
+    if v <= 150: return "Unhealthy for Sensitive Groups"
+    if v <= 200: return "Unhealthy"
+    if v <= 300: return "Very Unhealthy"
+    return "Hazardous"
+
 @st.cache_data
 def load_data():
-    url = st.secrets["db_url"]
-    engine = create_engine(url)
-    df = pd.read_sql("SELECT * FROM fact_aqi ORDER BY date", engine)
-    df["date"] = pd.to_datetime(df["date"])
-    engine.dispose()
-    return df
+    try:
+        url = st.secrets["db_url"]
+        engine = create_engine(url, connect_args={"connect_timeout": 10})
+        df = pd.read_sql("""
+            SELECT v.nom AS city_name, v.pays AS country,
+                   v.latitude, v.longitude,
+                   t.date_entiere AS date,
+                   f.aqi AS aqi_value,
+                   f.pm2_5 AS pm25, f.pm10, f.no2, f.so2, f.co, f.o3
+            FROM fact_air_quality f
+            JOIN dim_ville v ON f.id_ville = v.id_ville
+            JOIN dim_temps t ON f.id_temps = t.id_temps
+            ORDER BY t.date_entiere
+        """, engine)
+        engine.dispose()
+        df["date"] = pd.to_datetime(df["date"])
+        df["aqi_category"] = df["aqi_value"].map(aqi_cat)
+        df["_source"] = "neon"
+        return df
+    except Exception:
+        df = pd.read_csv("donnees_aqi.csv")
+        df["date"] = pd.to_datetime(df["date"])
+        df["_source"] = "csv"
+        return df
 
 df = load_data()
+
+if (df["_source"] == "csv").all():
+    st.warning("Base Neon inaccessible sur ce reseau - affichage des donnees locales (CSV).")
 
 st.markdown("""
 <h1 style='text-align:center; color:#1B2A4A; padding:20px 0; border-bottom:3px solid #1B2A4A; margin-bottom:20px;'>
