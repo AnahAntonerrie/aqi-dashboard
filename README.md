@@ -4,7 +4,7 @@
 
 Analyse et dashboard interactif de l'Air Quality Index (AQI) à partir du Data Warehouse PostgreSQL (Neon).
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://aqi-dashboard.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://anahantonerrie-aqi-dashboard-app-kopcr4.streamlit.app)
 
 ---
 
@@ -33,7 +33,7 @@ Power BI est l'outil retenu (liste autorisée du sujet).
 
 ## Dashboard Streamlit (bonus)
 
-🔗 **Version déployée** : [aqi-dashboard.streamlit.app](https://aqi-dashboard.streamlit.app)
+🔗 **Version déployée** : [anahantonerrie-aqi-dashboard-app-kopcr4.streamlit.app](https://anahantonerrie-aqi-dashboard-app-kopcr4.streamlit.app)
 
 En local :
 

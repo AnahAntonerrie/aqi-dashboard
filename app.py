@@ -20,6 +20,8 @@ CAT_ORDER = ["Good", "Moderate", "Unhealthy for Sensitive Groups",
 POLLU_THRESHOLDS = {"PM2.5": 15, "PM10": 45, "NO2": 13, "SO2": 15, "CO": 4, "O3": 51}
 POLLU_KEYS = ["pm25", "pm10", "no2", "so2", "co", "o3"]
 
+DEFAULT_DB_URL = "postgresql://neondb_owner:npg_Qm7OPhdTY3Ef@ep-cold-sun-ag3ww3w3-pooler.c-2.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
 def aqi_cat(v):
     if v <= 50: return "Good"
     if v <= 100: return "Moderate"
@@ -31,7 +33,7 @@ def aqi_cat(v):
 @st.cache_data
 def load_data():
     try:
-        url = st.secrets["db_url"]
+        url = st.secrets.get("db_url", DEFAULT_DB_URL)
         engine = create_engine(url, connect_args={"connect_timeout": 10})
         df = pd.read_sql("""
             SELECT v.nom AS city_name, v.pays AS country,
